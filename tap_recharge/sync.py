@@ -126,14 +126,14 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
 
     # pagination: loop thru all pages of data
     page = 1
-    pg_size = 100
+    page_size = 100
     from_rec = 1
-    record_count = pg_size # initial value, set with first API call
+    page_record_count = page_size # initial value, set with first API call
     total_records = 0
-    while record_count == pg_size:
+    while page_record_count == page_size:
         params = {
             'page': page,
-            'limit': pg_size,
+            'limit': page_size,
             **static_params # adds in endpoint specific, sort, filter params
         }
 
@@ -175,6 +175,8 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
             tdata = []
             tdata.append(transformed_data)
             transformed_data = tdata
+
+        page_record_count = len(transformed_data)
 
         # Process records and get the max_bookmark_value and record_count for the set of records
         max_bookmark_value, record_count = process_records(
