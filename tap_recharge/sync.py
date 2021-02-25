@@ -257,12 +257,6 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
         page = page + 1
         from_rec = to_rec + 1
 
-    # Update the bookmark for the stream after ALL pages if the records weren't sorted.
-    if bookmark_field and 'sort_by' not in static_params:
-        write_bookmark(state,
-                       stream_name,
-                       max_bookmark_value)
-
     # Return the list of ids to the stream, in case this is a parent stream with children.
     return total_records
 
@@ -356,8 +350,6 @@ def sync(client, catalog, state, start_date):
             'path': 'collections',
             'params': {},
             'data_key': 'collections',
-            'bookmark_field': 'updated_at',
-            'bookmark_type': 'datetime',
             'id_fields': ['id']
         },
         'customers': {
@@ -388,8 +380,6 @@ def sync(client, catalog, state, start_date):
                 'owner_resource': 'store'
             },
             'data_key': 'metafields',
-            'bookmark_field': 'updated_at',
-            'bookmark_type': 'datetime',
             'id_fields': ['id']
         },
         'metafields_customer': {
@@ -398,8 +388,6 @@ def sync(client, catalog, state, start_date):
                 'owner_resource': 'customer'
             },
             'data_key': 'metafields',
-            'bookmark_field': 'updated_at',
-            'bookmark_type': 'datetime',
             'id_fields': ['id']
         },
         'metafields_subscription': {
@@ -408,8 +396,6 @@ def sync(client, catalog, state, start_date):
                 'owner_resource': 'subscription'
             },
             'data_key': 'metafields',
-            'bookmark_field': 'updated_at',
-            'bookmark_type': 'datetime',
             'id_fields': ['id']
         },
         'onetimes': {
@@ -438,8 +424,6 @@ def sync(client, catalog, state, start_date):
             'path': 'products',
             'params': {},
             'data_key': 'products',
-            'bookmark_field': 'updated_at',
-            'bookmark_type': 'datetime',
             'id_fields': ['id']
         },
         'shop': {
