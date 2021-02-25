@@ -235,9 +235,15 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
                             parent=child_endpoint_config.get('parent'),
                             parent_id=parent_id)
                         LOGGER.info('Synced: {}, parent_id: {}, total_records: {}'.format(
-                            child_stream_name, 
+                            child_stream_name,
                             parent_id,
                             child_total_records))
+
+        # Update the bookmark for the stream if the records are sorted.
+        if bookmark_field and 'sort_by' in static_params:
+            write_bookmark(state,
+                           stream_name,
+                           max_bookmark_value)
 
         # Set to_rec: to record; ending record for the batch
         to_rec = from_rec + record_count - 1
@@ -251,9 +257,8 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
         page = page + 1
         from_rec = to_rec + 1
 
-    # Update the state with the max_bookmark_value for the stream after ALL pages
-    #   because the API requested data is NOT sorted
-    if bookmark_field:
+    # Update the bookmark for the stream after ALL pages if the records weren't sorted.
+    if bookmark_field and 'sort_by' not in static_params:
         write_bookmark(state,
                        stream_name,
                        max_bookmark_value)
@@ -327,7 +332,9 @@ def sync(client, catalog, state, start_date):
     endpoints = {
         'addresses': {
             'path': 'addresses',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'addresses',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -336,7 +343,9 @@ def sync(client, catalog, state, start_date):
         },
         'charges': {
             'path': 'charges',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'charges',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -353,7 +362,9 @@ def sync(client, catalog, state, start_date):
         },
         'customers': {
             'path': 'customers',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'customers',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -362,7 +373,9 @@ def sync(client, catalog, state, start_date):
         },
         'discounts': {
             'path': 'discounts',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'discounts',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -401,7 +414,9 @@ def sync(client, catalog, state, start_date):
         },
         'onetimes': {
             'path': 'onetimes',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'onetimes',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -410,7 +425,9 @@ def sync(client, catalog, state, start_date):
         },
         'orders': {
             'path': 'orders',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'orders',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -433,7 +450,9 @@ def sync(client, catalog, state, start_date):
         },
         'subscriptions': {
             'path': 'subscriptions',
-            'params': {},
+            'params': {
+                'sort_by': 'updated_at-asc'
+            },
             'data_key': 'subscriptions',
             'bookmark_query_field': 'updated_at_min',
             'bookmark_field': 'updated_at',
@@ -469,6 +488,6 @@ def sync(client, catalog, state, start_date):
 
             update_currently_syncing(state, None)
             LOGGER.info('Synced: {}, total_records: {}'.format(
-                            stream_name, 
+                            stream_name,
                             total_records))
             LOGGER.info('FINISHED Syncing: {}'.format(stream_name))
