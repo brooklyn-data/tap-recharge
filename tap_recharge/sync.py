@@ -247,17 +247,21 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
                            stream_name,
                            max_bookmark_value)
 
-        # Set to_rec: to record; ending record for the batch
-        to_rec = from_rec + record_count - 1
+        if record_count > 0:
+            to_rec = from_rec + record_count - 1
+            LOGGER.info('{} - Page {} - Synced records {} to {}'.format(
+                stream_name,
+                page,
+                from_rec,
+                to_rec))
+            from_rec = to_rec + 1
+        else:
+            LOGGER.info('{} - Page {} - All records have already been synced'.format(
+                stream_name,
+                page))
 
-        LOGGER.info('{} - Synced Page {} - Records {} to {}'.format(
-            stream_name,
-            page,
-            from_rec,
-            to_rec))
         # Pagination: increment the page by 1
         page = page + 1
-        from_rec = to_rec + 1
 
     # Return the list of ids to the stream, in case this is a parent stream with children.
     return total_records
