@@ -1,7 +1,7 @@
 import backoff
 import requests
 from requests.exceptions import ConnectionError
-import simplejson
+from simplejson.scanner import JSONDecodeError
 from singer import metrics, utils
 import singer
 
@@ -137,9 +137,9 @@ class RechargeClient(object):
         else:
             return True
 
-    # Retry for server errors, connection errors, too-many-requests errors, and invalid JSON responses.
+    # Retry for server errors, connection errors, and invalid JSON responses.
     @backoff.on_exception(backoff.expo,
-                          (Server5xxError, ConnectionError, Server429Error, simplejson.scanner.JSONDecodeError),
+                          (Server5xxError, ConnectionError, Server429Error, JSONDecodeError),
                           max_tries=5,
                           factor=2)
     # Call/rate limit: https://developer.rechargepayments.com/#call-limit
