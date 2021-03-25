@@ -1,8 +1,12 @@
+import dateutil.parser
+import pytz
 import singer
 from singer import metrics, metadata, Transformer, utils
 from singer.transform import string_to_datetime
 
 LOGGER = singer.get_logger()
+
+EASTERN_TZ = pytz.timezone('US/Eastern')
 
 
 def write_schema(catalog, stream_name):
@@ -42,6 +46,14 @@ def write_bookmark(state, stream, value):
     singer.write_state(state)
 
 
+def pre_transform_datetime(data, typ, schema):
+    if schema.get('format') == 'date-time' and data:
+        # ReCharge's API returns datetime values in Eastern time but without any timezone indicator,
+        # so the Singer code would assume they're in UTC if we didn't add the timezone indicator.
+        return EASTERN_TZ.localize(dateutil.parser.parse(data)).isoformat()
+    return data
+
+
 def process_records(catalog, #pylint: disable=too-many-branches
                     stream_name,
                     records,
@@ -63,7 +75,7 @@ def process_records(catalog, #pylint: disable=too-many-branches
                 record[parent + '_id'] = parent_id
 
             # Transform record for Singer.io
-            with Transformer() as transformer:
+            with Transformer(pre_hook=pre_transform_datetime) as transformer:
                 transformed_record = transformer.transform(record,
                                                schema,
                                                stream_metadata)
