@@ -140,6 +140,7 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
             'limit': page_size,
             **static_params # adds in endpoint specific, sort, filter params
         }
+        is_sorted = 'sort_by' in params
 
         if bookmark_query_field and last_bookmark_value:
             if bookmark_type == 'datetime':
@@ -248,7 +249,7 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
                             child_total_records))
 
         # Update the bookmark for the stream if the records are sorted.
-        if bookmark_field and 'sort_by' in static_params:
+        if bookmark_field and is_sorted:
             write_bookmark(state,
                            stream_name,
                            max_bookmark_value)
@@ -266,8 +267,15 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
                 stream_name,
                 page))
 
-        # Pagination: increment the page by 1
-        page = page + 1
+        # Update the bookmark query field when possible rather than paginating, because when records
+        # are sorted by their updated_at value and updates occur during pagination then records can
+        # end up getting shifted from a page about to be synced to a page that was already synced,
+        # and thus get missed.
+        if bookmark_query_field and is_sorted and max_bookmark_value > last_bookmark_value:
+            last_bookmark_value = max_bookmark_value
+            page = 1
+        else:
+            page = page + 1
 
     # Return the list of ids to the stream, in case this is a parent stream with children.
     return total_records
