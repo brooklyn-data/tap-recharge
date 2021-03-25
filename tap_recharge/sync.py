@@ -143,7 +143,9 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
 
         if bookmark_query_field and last_bookmark_value:
             if bookmark_type == 'datetime':
-                params[bookmark_query_field] = last_bookmark_value[0:10]  # Last date
+                # The ReCharge API works with datetime values in Eastern time.
+                query_datetime = dateutil.parser.parse(last_bookmark_value).astimezone(EASTERN_TZ)
+                params[bookmark_query_field] = query_datetime.strftime('%Y-%m-%dT%H:%M:%S')
             else:
                 params[bookmark_query_field] = last_bookmark_value
             LOGGER.info('{} - Sync start since: {}'.format(
