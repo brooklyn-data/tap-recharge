@@ -263,9 +263,7 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
                 to_rec))
             from_rec = to_rec + 1
         else:
-            LOGGER.info('{} - Page {} - All records have already been synced'.format(
-                stream_name,
-                page))
+            LOGGER.info('{} - Page {} - No records needed to be synced'.format(stream_name, page))
 
         # Update the bookmark query field when possible rather than paginating, because when records
         # are sorted by their updated_at value and updates occur during pagination then records can
