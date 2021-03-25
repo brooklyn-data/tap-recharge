@@ -1,5 +1,6 @@
 import singer
 from singer import metrics, metadata, Transformer, utils
+from singer.transform import string_to_datetime
 
 LOGGER = singer.get_logger()
 
@@ -47,9 +48,8 @@ def process_records(catalog, #pylint: disable=too-many-branches
                     time_extracted,
                     bookmark_field=None,
                     bookmark_type=None,
+                    last_bookmark_value=None,
                     max_bookmark_value=None,
-                    last_datetime=None,
-                    last_integer=None,
                     parent=None,
                     parent_id=None):
     stream = catalog.get_stream(stream_name)
@@ -68,25 +68,14 @@ def process_records(catalog, #pylint: disable=too-many-branches
                                                schema,
                                                stream_metadata)
 
-                 # Reset max_bookmark_value to new value if higher
                 if bookmark_field and (bookmark_field in transformed_record):
-                    if (max_bookmark_value is None) or \
-                        (transformed_record[bookmark_field] > max_bookmark_value):
+                    # Keep only records whose bookmark is after the last_bookmark_value
+                    if transformed_record[bookmark_field] >= last_bookmark_value:
+                        write_record(stream_name, transformed_record, time_extracted=time_extracted)
+                        counter.increment()
+                    # Set max_bookmark_value to new value if higher
+                    if transformed_record[bookmark_field] > max_bookmark_value:
                         max_bookmark_value = transformed_record[bookmark_field]
-
-                if bookmark_field and (bookmark_field in transformed_record):
-                    if bookmark_type == 'integer':
-                        # Keep only records whose bookmark is after the last_integer
-                        if transformed_record[bookmark_field] >= last_integer:
-                            write_record(stream_name, transformed_record, time_extracted=time_extracted)
-                            counter.increment()
-                    elif bookmark_type == 'datetime':
-                        last_dttm = transformer._transform_datetime(last_datetime)
-                        bookmark_dttm = transformer._transform_datetime(record[bookmark_field])
-                        # Keep only records whose bookmark is after the last_datetime
-                        if bookmark_dttm >= last_dttm:
-                            write_record(stream_name, transformed_record, time_extracted=time_extracted)
-                            counter.increment()
                 else:
                     write_record(stream_name, transformed_record, time_extracted=time_extracted)
                     counter.increment()
@@ -111,16 +100,19 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
                   parent=None,
                   parent_id=None):
 
-    # Get the latest bookmark for the stream and set the last_integer/datetime
-    last_datetime = None
-    last_integer = None
-    max_bookmark_value = None
-    if bookmark_type == 'integer':
-        last_integer = get_bookmark(state, stream_name, 0)
-        max_bookmark_value = last_integer
-    else:
-        last_datetime = get_bookmark(state, stream_name, start_date)
-        max_bookmark_value = last_datetime
+    # Get the last bookmark for the stream
+    last_bookmark_value = None
+    if bookmark_field:
+        if bookmark_type == 'integer':
+            last_bookmark_value = get_bookmark(state, stream_name, 0)
+        elif bookmark_type == 'datetime':
+            # Transform the bookmark value into the same normalized datetime string format that the
+            # Singer code transforms datetime fields into, so the bookmark and datetime field values
+            # can be accurately compared (despite its name, string_to_datetime returns a string).
+            last_bookmark_value = string_to_datetime(get_bookmark(state, stream_name, start_date))
+        else:
+            raise Exception('Unknown bookmark type: {}'.format(bookmark_type))
+    max_bookmark_value = last_bookmark_value
 
     write_schema(catalog, stream_name)
 
@@ -137,15 +129,16 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
             **static_params # adds in endpoint specific, sort, filter params
         }
 
-        if bookmark_query_field:
+        if bookmark_query_field and last_bookmark_value:
             if bookmark_type == 'datetime':
-                params[bookmark_query_field] = last_datetime[0:10] # last_datetime date
-            elif bookmark_type == 'integer':
-                params[bookmark_query_field] = last_integer
-
-        LOGGER.info('{} - Sync start {}'.format(
-            stream_name,
-            'since: {}, '.format(last_datetime) if bookmark_query_field else ''))
+                params[bookmark_query_field] = last_bookmark_value[0:10]  # Last date
+            else:
+                params[bookmark_query_field] = last_bookmark_value
+            LOGGER.info('{} - Sync start since: {}'.format(
+                stream_name,
+                params[bookmark_query_field]))
+        else:
+            LOGGER.info('{} - Sync start')
 
         # Squash params to query-string params
         querystring = '&'.join(['%s=%s' % (key, value) for (key, value) in params.items()])
@@ -186,9 +179,8 @@ def sync_endpoint(client, #pylint: disable=too-many-branches
             time_extracted=time_extracted,
             bookmark_field=bookmark_field,
             bookmark_type=bookmark_type,
+            last_bookmark_value=last_bookmark_value,
             max_bookmark_value=max_bookmark_value,
-            last_datetime=last_datetime,
-            last_integer=last_integer,
             parent=parent,
             parent_id=parent_id)
 
